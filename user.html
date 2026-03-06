@@ -3,19 +3,74 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>higüeyshop | Redireccionando</title>
+  <title>higüeyshop | Acceso</title>
   <link rel="stylesheet" href="assets/css/styles.css">
-  <meta http-equiv="refresh" content="0; url=admin.html">
 </head>
-<body class="cliente">
-  <main class="container">
-    <section class="panel auth-panel">
-      <h3>Acceso unificado</h3>
-      <p class="sub">Esta pagina ahora esta integrada en <strong>admin.html</strong>.</p>
-      <div class="actions-inline" style="margin-top:10px;">
-        <a class="btn" href="admin.html">Ir ahora</a>
+<body class="user-auth-body">
+  <div style="position:fixed;top:12px;right:12px;z-index:20;">
+    <button id="themeToggle" class="btn secondary theme-toggle" type="button">Tema: Auto</button>
+  </div>
+  <main class="auth-page">
+    <header class="auth-brand">
+      <img class="auth-logo-large" src="assets/img/logo-higuey.png" alt="Logo Higüey Shop">
+      <h1>Bienvenido a higüeyshop</h1>
+      <p>Accede a tu cuenta para comprar y guardar tus pedidos.</p>
+    </header>
+
+    <section class="login-cube">
+      <div class="auth-switch">
+        <button id="switchLogin" class="switch-btn active" type="button">Iniciar sesión</button>
+        <button id="switchRegister" class="switch-btn" type="button">Registrarte</button>
+        <button id="switchAdmin" class="switch-btn" type="button">Admin</button>
       </div>
+
+      <form id="loginForm" class="auth-modern-form">
+        <label for="loginEmail">Correo</label>
+        <input id="loginEmail" type="email" placeholder="correo@ejemplo.com" required>
+
+        <label for="loginPassword">Contraseña</label>
+        <div class="password-wrap">
+          <input id="loginPassword" type="password" placeholder="Tu contraseña" required>
+          <button id="toggleLoginPassword" class="toggle-pass" type="button">Ver</button>
+        </div>
+
+        <div class="auth-inline-links">
+          <button id="forgotPassword" class="link-btn" type="button">Recuperar contraseña</button>
+          <button id="goToRegister" class="link-btn" type="button">Regístrate</button>
+        </div>
+
+        <button class="btn auth-submit" type="submit">Entrar</button>
+      </form>
+
+      <form id="registerForm" class="auth-modern-form hidden">
+        <label for="registerNombre">Nombre</label>
+        <input id="registerNombre" type="text" placeholder="Tu nombre" required>
+
+        <label for="registerEmail">Correo</label>
+        <input id="registerEmail" type="email" placeholder="correo@ejemplo.com" required>
+
+        <label for="registerPassword">Contraseña</label>
+        <div class="password-wrap">
+          <input id="registerPassword" type="password" placeholder="Mínimo 6 caracteres" minlength="6" required>
+          <button id="toggleRegisterPassword" class="toggle-pass" type="button">Ver</button>
+        </div>
+
+        <div class="auth-inline-links">
+          <span class="sub">¿Ya tienes cuenta?</span>
+          <button id="goToLogin" class="link-btn" type="button">Iniciar sesión</button>
+        </div>
+
+        <button class="btn auth-submit" type="submit">Crear cuenta</button>
+      </form>
+
+      <p id="authMsg" class="auth-msg"></p>
     </section>
   </main>
+
+  <footer class="auth-footer">Esta página fue creada por Mark Levis.</footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+  <script src="assets/js/theme.js" defer></script>
+  <script src="assets/js/user.js" defer></script>
 </body>
 </html>

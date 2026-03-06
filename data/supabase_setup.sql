@@ -14,6 +14,7 @@ create table if not exists public.productos (
   precio numeric(12,2) not null default 0,
   precio_anterior numeric(12,2) not null default 0,
   imagenes jsonb not null default '[]'::jsonb,
+  video text not null default '',
   categoria text not null default 'General',
   descripcion text not null default '',
   rating numeric(3,2) not null default 4.0,

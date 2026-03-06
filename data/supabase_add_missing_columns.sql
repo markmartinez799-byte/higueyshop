@@ -13,6 +13,7 @@ alter table if exists public.productos
 alter table if exists public.productos
   add column if not exists precio_anterior numeric(12,2),
   add column if not exists imagenes jsonb,
+  add column if not exists video text,
   add column if not exists categoria text,
   add column if not exists rating numeric(3,2),
   add column if not exists ventas integer,
@@ -23,6 +24,7 @@ update public.productos
 set
   precio_anterior = coalesce(precio_anterior, precio, 0),
   imagenes = coalesce(imagenes, case when imagen is not null and imagen <> '' then jsonb_build_array(imagen) else '[]'::jsonb end),
+  video = coalesce(video, ''),
   categoria = coalesce(nullif(categoria, ''), 'General'),
   rating = coalesce(rating, 4.5),
   ventas = coalesce(ventas, 0),
@@ -35,6 +37,7 @@ alter table if exists public.productos
   alter column precio set default 0,
   alter column precio_anterior set default 0,
   alter column imagenes set default '[]'::jsonb,
+  alter column video set default '',
   alter column categoria set default 'General',
   alter column rating set default 4.5,
   alter column ventas set default 0,
@@ -93,6 +96,14 @@ create table if not exists public.resenas (
 
 create index if not exists idx_resenas_producto_id on public.resenas (producto_id);
 create index if not exists idx_resenas_created_at on public.resenas (created_at desc);
+
+-- 6.1) Agregar columnas de rastreo a pedidos si la tabla ya existe
+alter table if exists public.pedidos
+  add column if not exists tracking_code text,
+  add column if not exists tracking_status text not null default 'pendiente',
+  add column if not exists tracking_history jsonb not null default '[]'::jsonb;
+
+create unique index if not exists idx_pedidos_tracking_code on public.pedidos (tracking_code);
 
 -- 7) RLS básico para lecturas públicas y escritura autenticada
 alter table if exists public.productos enable row level security;

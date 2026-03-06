@@ -9,10 +9,11 @@
 <body class="admin">
   <header class="market-header">
     <div class="topbar">
-      <div class="brand">
+      <a class="brand" href="index.html" aria-label="Ir a la página principal">
         <img class="brand-logo" src="assets/img/logo-higuey.png" alt="Logo Higüey Shop">
-      </div>
+      </a>
       <div class="actions-inline">
+        <button id="themeToggle" class="btn secondary theme-toggle" type="button">Tema: Auto</button>
         <button id="adminLogoutBtn" class="btn secondary hidden" type="button">Cerrar sesión admin</button>
         <a class="btn-cliente" href="index.html">Ver tienda cliente</a>
       </div>
@@ -20,7 +21,7 @@
   </header>
 
   <main class="container">
-    <section id="adminLoginPanel" class="panel auth-panel">
+    <section id="adminLoginPanel" class="panel auth-panel quick-access-card">
       <div class="auth-head">
         <h2>Acceso rápido</h2>
       </div>
@@ -61,7 +62,7 @@
     <section id="adminApp" class="admin-shell hidden">
       <section class="panel">
         <h2 id="formTitulo">Agregar producto</h2>
-        <p class="sub">Puedes subir imagenes desde tu carpeta y/o pegar URLs. Maximo 10 imagenes por articulo.</p>
+        <p class="sub">Puedes subir imagenes desde tu carpeta y/o pegar URLs. Maximo 50 imagenes por articulo y 1 video (maximo 3 MB).</p>
         <div class="form-grid">
           <input id="nombre" type="text" placeholder="Nombre del articulo">
           <input id="categoria" type="text" placeholder="Categoria (Electronica, Hogar, Moda)">
@@ -69,9 +70,10 @@
           <input id="precioAnterior" type="number" min="0" step="1" placeholder="Precio anterior (ej: 2400)">
           <input id="rating" type="number" min="1" max="5" step="0.1" placeholder="Rating (1-5)">
           <input id="imagenesArchivos" type="file" accept="image/*" multiple>
+          <input id="videoArchivo" type="file" accept="video/*">
           <textarea id="imagenesUrls" class="full" placeholder="URLs de imagen (una por linea)"></textarea>
           <textarea id="descripcion" class="full" placeholder="Descripcion corta del producto"></textarea>
-          <button id="agregar" class="full">Agregar articulos de venta</button>
+          <button id="agregar" class="full" type="button">Agregar articulos de venta</button>
           <button id="cancelarEdicion" class="full btn secondary hidden" type="button">Cancelar edición</button>
         </div>
       </section>
@@ -87,6 +89,7 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+  <script src="assets/js/theme.js" defer></script>
   <script src="assets/js/admin.js" defer></script>
 </body>
 </html>

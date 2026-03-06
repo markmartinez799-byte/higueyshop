@@ -4,6 +4,9 @@
     const SUPABASE_KEY = "sb_publishable_1Dc2DB9h1p3bKm4yrm6SVA_qA693feK";
     const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_KEY);
     const PLACEHOLDER_IMG = "https://dummyimage.com/800x600/f0f0f0/777&text=Sin+imagen";
+    const MAX_IMAGES = 50;
+    const PAYPAL_CURRENCY = "USD";
+    const FREE_SHIPPING_TARGET = 3000;
 
     const defaults = [
       {
@@ -88,6 +91,36 @@
     const $carritoTotal = document.getElementById("carritoTotal");
     const $vaciarCarrito = document.getElementById("vaciarCarrito");
     const $comprarTodo = document.getElementById("comprarTodo");
+    const $metodoPago = document.getElementById("metodoPago");
+    const $whatsappPagoBtn = document.getElementById("whatsappPagoBtn");
+    const $cartResumen = document.getElementById("cartResumen");
+    const $cartShippingMsg = document.getElementById("cartShippingMsg");
+    const $paypalCheckoutWrap = document.getElementById("paypalCheckoutWrap");
+    const $paypalCheckoutMsg = document.getElementById("paypalCheckoutMsg");
+    const $paypalButtonsContainer = document.getElementById("paypalButtonsContainer");
+    const $paypalButtonApplePay = document.getElementById("paypalButtonApplePay");
+    const $paypalButtonGooglePay = document.getElementById("paypalButtonGooglePay");
+    const $paypalButtonMain = document.getElementById("paypalButtonMain");
+    const $facturaModal = document.getElementById("facturaModal");
+    const $facturaNumero = document.getElementById("facturaNumero");
+    const $facturaFecha = document.getElementById("facturaFecha");
+    const $facturaCliente = document.getElementById("facturaCliente");
+    const $facturaMetodo = document.getElementById("facturaMetodo");
+    const $facturaItems = document.getElementById("facturaItems");
+    const $facturaSubtotal = document.getElementById("facturaSubtotal");
+    const $facturaEnvio = document.getElementById("facturaEnvio");
+    const $facturaTotal = document.getElementById("facturaTotal");
+    const $facturaCancelar = document.getElementById("facturaCancelar");
+    const $facturaConfirmar = document.getElementById("facturaConfirmar");
+    const $trackingCodeInput = document.getElementById("trackingCodeInput");
+    const $trackingSearchBtn = document.getElementById("trackingSearchBtn");
+    const $trackingResult = document.getElementById("trackingResult");
+    const $detallePaypalCheckoutWrap = document.getElementById("detallePaypalCheckoutWrap");
+    const $detallePaypalCheckoutMsg = document.getElementById("detallePaypalCheckoutMsg");
+    const $detallePaypalButtonsContainer = document.getElementById("detallePaypalButtonsContainer");
+    const $detallePaypalButtonApplePay = document.getElementById("detallePaypalButtonApplePay");
+    const $detallePaypalButtonGooglePay = document.getElementById("detallePaypalButtonGooglePay");
+    const $detallePaypalButtonMain = document.getElementById("detallePaypalButtonMain");
     const $authUserBadge = document.getElementById("authUserBadge");
     const $btnAuthOpen = document.getElementById("btnAuthOpen");
     const $btnAuthLogout = document.getElementById("btnAuthLogout");
@@ -96,6 +129,8 @@
     const $cerrarDetalle = document.getElementById("cerrarDetalle");
     const $detalleImagenWrap = document.getElementById("detalleImagenWrap");
     const $detalleImagenPrincipal = document.getElementById("detalleImagenPrincipal");
+    const $detalleVideoWrap = document.getElementById("detalleVideoWrap");
+    const $detalleVideo = document.getElementById("detalleVideo");
     const $detalleGaleria = document.getElementById("detalleGaleria");
     const $zoomBtn = document.getElementById("zoomBtn");
     const $detalleNombre = document.getElementById("detalleNombre");
@@ -126,6 +161,7 @@
       categoria: "Todas",
       orden: "relevancia",
       carrito: [],
+      instantCheckoutItem: null,
       selectedId: null,
       selectedImage: 0,
       user: null,
@@ -134,8 +170,14 @@
       panY: 0,
       isDraggingZoom: false,
       dragStartX: 0,
-      dragStartY: 0
+      dragStartY: 0,
+      lightboxTouchStartX: 0,
+      paypalButtonsRendered: false,
+      detallePaypalButtonsRendered: false,
+      pendingInvoice: null
     };
+    const warnedSupabaseTables = new Set();
+    let estadoSyncTimer = null;
 
     function parsePrecio(value) {
       if (typeof value === "number") return value;
@@ -145,6 +187,272 @@
 
     function money(value) {
       return `RD$ ${Math.round(value).toLocaleString("es-DO")}`;
+    }
+
+    function getCarritoTotal() {
+      return state.carrito.reduce((acc, item) => acc + item.precio, 0);
+    }
+
+    function getCheckoutTotal() {
+      if (state.instantCheckoutItem) {
+        return Number(state.instantCheckoutItem.precio) || 0;
+      }
+      return getCarritoTotal();
+    }
+
+    function getShippingCost(subtotal) {
+      if (!subtotal) return 0;
+      return subtotal >= FREE_SHIPPING_TARGET ? 0 : 250;
+    }
+
+    function warnSupabaseTable(table, error) {
+      if (!error || warnedSupabaseTables.has(table)) return;
+      warnedSupabaseTables.add(table);
+      console.warn(`Supabase table issue (${table}):`, error.message || error);
+    }
+
+    function sanitizeCart(items) {
+      if (!Array.isArray(items)) return [];
+      return items
+        .map((item) => ({
+          id: item?.id || crypto.randomUUID(),
+          nombre: String(item?.nombre || "Articulo"),
+          precio: Number(item?.precio) || 0
+        }))
+        .filter((item) => item.precio > 0);
+    }
+
+    function hasMetodoPagoOption(value) {
+      if (!$metodoPago || !value) return false;
+      return Array.from($metodoPago.options).some((opt) => opt.value === value);
+    }
+
+    async function guardarEstadoClienteSupabase() {
+      if (!supabaseClient || !state.user?.id) return false;
+      const payload = {
+        user_id: state.user.id,
+        carrito: state.carrito,
+        metodo_pago: $metodoPago?.value || "",
+        instant_checkout_item: state.instantCheckoutItem || null,
+        filtros: {
+          q: state.q,
+          categoria: state.categoria,
+          orden: state.orden
+        },
+        updated_at: new Date().toISOString()
+      };
+      const { error } = await supabaseClient
+        .from("cliente_estado")
+        .upsert(payload, { onConflict: "user_id" });
+      if (error) {
+        warnSupabaseTable("cliente_estado", error);
+        return false;
+      }
+      return true;
+    }
+
+    function scheduleGuardarEstadoCliente() {
+      if (!state.user?.id) return;
+      if (estadoSyncTimer) clearTimeout(estadoSyncTimer);
+      estadoSyncTimer = setTimeout(() => {
+        void guardarEstadoClienteSupabase();
+      }, 350);
+    }
+
+    async function restaurarEstadoClienteSupabase() {
+      if (!supabaseClient || !state.user?.id) return;
+      const { data, error } = await supabaseClient
+        .from("cliente_estado")
+        .select("*")
+        .eq("user_id", state.user.id)
+        .maybeSingle();
+      if (error) {
+        warnSupabaseTable("cliente_estado", error);
+        return;
+      }
+      if (!data) return;
+
+      state.carrito = sanitizeCart(data.carrito);
+      state.instantCheckoutItem = data.instant_checkout_item && typeof data.instant_checkout_item === "object"
+        ? data.instant_checkout_item
+        : null;
+      const filtros = data.filtros && typeof data.filtros === "object" ? data.filtros : {};
+      if (typeof filtros.q === "string") state.q = filtros.q;
+      if (typeof filtros.categoria === "string") state.categoria = filtros.categoria;
+      if (typeof filtros.orden === "string") state.orden = filtros.orden;
+      if ($busqueda && typeof filtros.q === "string") $busqueda.value = filtros.q;
+      if ($orden && typeof filtros.orden === "string") $orden.value = filtros.orden;
+      if (hasMetodoPagoOption(data.metodo_pago)) {
+        $metodoPago.value = data.metodo_pago;
+      }
+    }
+
+    function buildPedidoPayload(metodoPago = "WhatsApp", canal = "whatsapp") {
+      const trackingCode = `HGS-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${String(Math.floor(Math.random() * 9000) + 1000)}`;
+      const isDirect = Boolean(state.instantCheckoutItem);
+      const items = isDirect
+        ? [{
+          id: state.instantCheckoutItem.id,
+          nombre: state.instantCheckoutItem.nombre,
+          qty: 1,
+          precio: Number(state.instantCheckoutItem.precio) || 0,
+          total: Number(state.instantCheckoutItem.precio) || 0
+        }]
+        : groupCartItems().map((item) => ({
+          id: item.id,
+          nombre: item.nombre,
+          qty: item.qty,
+          precio: item.precio,
+          total: item.total
+        }));
+      const subtotal = items.reduce((acc, item) => acc + (Number(item.total) || 0), 0);
+      const envio = getShippingCost(subtotal);
+      const total = subtotal + envio;
+      return {
+        user_id: state.user?.id || null,
+        cliente: authName(state.user),
+        canal,
+        metodo_pago: metodoPago,
+        items,
+        subtotal,
+        envio,
+        total,
+        tracking_code: trackingCode,
+        tracking_status: "pendiente",
+        tracking_history: [
+          {
+            status: "pendiente",
+            note: "Pedido registrado",
+            at: new Date().toISOString()
+          }
+        ],
+        estado: "pendiente",
+        created_at: new Date().toISOString()
+      };
+    }
+
+    async function guardarPedidoSupabase(payload) {
+      if (!supabaseClient) return false;
+      const { data, error } = await supabaseClient
+        .from("pedidos")
+        .insert(payload)
+        .select("tracking_code, tracking_status, created_at")
+        .single();
+      if (error) {
+        warnSupabaseTable("pedidos", error);
+        return false;
+      }
+      return data || true;
+    }
+
+    async function buscarRastreoSupabase(code) {
+      if (!supabaseClient || !state.user?.id) return null;
+      const { data, error } = await supabaseClient
+        .from("pedidos")
+        .select("tracking_code, tracking_status, created_at, total, tracking_history")
+        .eq("tracking_code", code)
+        .eq("user_id", state.user.id)
+        .maybeSingle();
+      if (error) {
+        warnSupabaseTable("pedidos", error);
+        return null;
+      }
+      return data;
+    }
+
+    function groupCartItems() {
+      const grouped = new Map();
+      state.carrito.forEach((item) => {
+        const current = grouped.get(item.id);
+        if (current) {
+          current.qty += 1;
+          current.total += item.precio;
+        } else {
+          grouped.set(item.id, {
+            id: item.id,
+            nombre: item.nombre,
+            precio: item.precio,
+            qty: 1,
+            total: item.precio
+          });
+        }
+      });
+      return [...grouped.values()];
+    }
+
+    function openInvoiceModal(metodoPago) {
+      const groupedItems = groupCartItems();
+      const subtotal = groupedItems.reduce((acc, item) => acc + item.total, 0);
+      const envio = getShippingCost(subtotal);
+      const total = subtotal + envio;
+
+      const now = new Date();
+      const invoiceNumber = `FAC-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}-${String(now.getTime()).slice(-5)}`;
+      if ($facturaNumero) $facturaNumero.textContent = invoiceNumber;
+      if ($facturaFecha) $facturaFecha.textContent = now.toLocaleString("es-DO");
+      if ($facturaCliente) $facturaCliente.textContent = authName(state.user);
+      if ($facturaMetodo) $facturaMetodo.textContent = metodoPago;
+      if ($facturaSubtotal) $facturaSubtotal.textContent = money(subtotal);
+      if ($facturaEnvio) $facturaEnvio.textContent = money(envio);
+      if ($facturaTotal) $facturaTotal.textContent = money(total);
+
+      if ($facturaItems) {
+        $facturaItems.innerHTML = "";
+        groupedItems.forEach((item) => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${esc(item.nombre)}</td>
+            <td>${item.qty}</td>
+            <td>${money(item.precio)}</td>
+            <td>${money(item.total)}</td>
+          `;
+          $facturaItems.appendChild(tr);
+        });
+      }
+
+      state.pendingInvoice = { metodoPago, subtotal, envio, total };
+      $facturaModal?.classList.remove("hidden");
+    }
+
+    function closeInvoiceModal() {
+      state.pendingInvoice = null;
+      $facturaModal?.classList.add("hidden");
+    }
+
+    function confirmInvoicePurchase() {
+      if (!state.pendingInvoice) return;
+      const { metodoPago, total } = state.pendingInvoice;
+      const pedido = buildPedidoPayload(metodoPago, "manual");
+      void guardarPedidoSupabase(pedido).then((saved) => {
+        if (saved && typeof saved === "object" && saved.tracking_code) {
+          alert(`Codigo de rastreo: ${saved.tracking_code}`);
+        }
+      });
+      alert(`Compra realizada por ${authName(state.user)}\nTotal final: ${money(total)}\nPago: ${metodoPago}`);
+      closeInvoiceModal();
+      state.carrito = [];
+      if ($metodoPago) $metodoPago.value = "";
+      renderCarrito();
+      scheduleGuardarEstadoCliente();
+    }
+
+    function openWhatsAppPayment() {
+      const isDirect = Boolean(state.instantCheckoutItem);
+      const total = isDirect ? Number(state.instantCheckoutItem.precio || 0) : getCarritoTotal();
+      const items = isDirect ? 1 : state.carrito.length;
+      const detalle = isDirect
+        ? `Producto: ${state.instantCheckoutItem.nombre}. `
+        : "";
+      const text = `Hola, quiero pagar mi pedido de ${items} articulo(s) en higueyshop. ${detalle}Total aproximado: ${money(total)}.`;
+      const url = `https://wa.me/18492842191?text=${encodeURIComponent(text)}`;
+      const pedido = buildPedidoPayload("WhatsApp", "whatsapp");
+      void guardarPedidoSupabase(pedido).then((saved) => {
+        if ($trackingResult && saved && typeof saved === "object" && saved.tracking_code) {
+          $trackingResult.textContent = `Pedido creado. Codigo de rastreo: ${saved.tracking_code} | Estado: ${saved.tracking_status || "pendiente"}`;
+        }
+      });
+      scheduleGuardarEstadoCliente();
+      window.open(url, "_blank", "noopener,noreferrer");
     }
 
     function clampRating(value) {
@@ -187,14 +495,16 @@
     }
 
     function authName(user) {
-      if (!user) return "Invitado";
+      if (!user) return "Visita";
       const metaName = user.user_metadata?.nombre || user.user_metadata?.name;
-      return metaName || user.email || "Cliente";
+      if (metaName) return metaName;
+      if (user.email) return user.email.split("@")[0];
+      return "Cliente";
     }
 
     function renderAuthUI() {
       const logged = Boolean(state.user);
-      $authUserBadge.textContent = logged ? authName(state.user) : "Invitado";
+      $authUserBadge.textContent = logged ? authName(state.user) : "Visita";
       $btnAuthLogout.classList.toggle("hidden", !logged);
       $btnAuthOpen.classList.toggle("hidden", logged);
       if (logged) {
@@ -205,7 +515,7 @@
     function requireAuth() {
       if (state.user) return true;
       alert("Debes iniciar sesión como cliente para continuar.");
-      window.location.href = "admin.html";
+      window.location.href = "user.html";
       return false;
     }
 
@@ -217,7 +527,7 @@
       const legacy = producto.imagen ? [producto.imagen] : [];
       const imagenes = (Array.isArray(producto.imagenes) ? producto.imagenes : legacy)
         .filter(Boolean)
-        .slice(0, 10);
+        .slice(0, MAX_IMAGES);
 
       if (!imagenes.length) imagenes.push(PLACEHOLDER_IMG);
 
@@ -227,6 +537,7 @@
         precio,
         precioAnterior,
         imagenes,
+        video: producto.video || "",
         categoria: producto.categoria || "General",
         descripcion: producto.descripcion || "Sin descripcion disponible.",
         rating: clampRating(producto.rating),
@@ -243,6 +554,7 @@
         precio: row.precio,
         precioAnterior: row.precio_anterior ?? row.precio,
         imagenes: (imgs.length ? imgs : fallback),
+        video: row.video || "",
         categoria: row.categoria || "General",
         descripcion: row.descripcion || "",
         rating: Number(row.rating) || 4.5,
@@ -366,9 +678,12 @@
       const { data } = await supabaseClient.auth.getSession();
       state.user = data?.session?.user || null;
       renderAuthUI();
+      await restaurarEstadoClienteSupabase();
+      renderCarrito();
       supabaseClient.auth.onAuthStateChange((_event, session) => {
         state.user = session?.user || null;
         renderAuthUI();
+        scheduleGuardarEstadoCliente();
       });
     }
 
@@ -433,10 +748,19 @@
       return Math.round(((producto.precioAnterior - producto.precio) / producto.precioAnterior) * 100);
     }
 
+    function stockStatus(producto) {
+      const base = Number(producto.ventas) || 0;
+      if (base >= 700) return { cls: "hot", label: "Alta demanda" };
+      if (base >= 250) return { cls: "ok", label: "Disponible" };
+      return { cls: "low", label: "Pocas unidades" };
+    }
+
     function crearCard(producto) {
       const off = descuento(producto);
+      const stock = stockStatus(producto);
       const card = document.createElement("article");
       card.className = "card";
+      card.dataset.id = String(producto.id);
       card.innerHTML = `
         <div class="card-media">
           <img src="${producto.imagenes[0]}" alt="${producto.nombre}">
@@ -446,8 +770,9 @@
           <h3>${producto.nombre}</h3>
           <div class="meta">
             <span>${producto.categoria}</span>
-            <span>${producto.rating.toFixed(1)} stars</span>
+            <span>${producto.rating.toFixed(1)} ★</span>
           </div>
+          <span class="stock-pill ${stock.cls}">${stock.label}</span>
           <div class="price-row">
             <p class="precio">${money(producto.precio)}</p>
             <p class="precio-anterior">${money(producto.precioAnterior)}</p>
@@ -476,8 +801,11 @@
     }
 
     function addToCart(producto) {
+      state.instantCheckoutItem = null;
+      toggleDetallePaypalCheckout();
       state.carrito.push({ id: producto.id, nombre: producto.nombre, precio: producto.precio });
       renderCarrito();
+      scheduleGuardarEstadoCliente();
     }
 
     function renderCarrito() {
@@ -486,12 +814,14 @@
       if (!state.carrito.length) {
         $carritoLista.innerHTML = '<li class="vacio">Tu carrito esta vacio.</li>';
         $carritoTotal.textContent = money(0);
+        if ($cartResumen) $cartResumen.textContent = "0 articulos en carrito.";
+        if ($cartShippingMsg) $cartShippingMsg.textContent = "Agrega articulos para calcular envio.";
+        togglePaypalCheckout();
+        scheduleGuardarEstadoCliente();
         return;
       }
 
-      let total = 0;
       state.carrito.forEach((item, idx) => {
-        total += item.precio;
         const li = document.createElement("li");
         li.className = "cart-item";
         li.innerHTML = `
@@ -502,7 +832,194 @@
         $carritoLista.appendChild(li);
       });
 
+      const total = getCarritoTotal();
+      const items = state.carrito.length;
+      const remaining = Math.max(0, FREE_SHIPPING_TARGET - total);
+
       $carritoTotal.textContent = money(total);
+      if ($cartResumen) {
+        $cartResumen.textContent = `${items} articulo${items === 1 ? "" : "s"} en carrito.`;
+      }
+      if ($cartShippingMsg) {
+        $cartShippingMsg.textContent = remaining === 0
+          ? "Envio gratis aplicado en esta compra."
+          : `Te faltan ${money(remaining)} para envio gratis.`;
+      }
+      togglePaypalCheckout();
+      scheduleGuardarEstadoCliente();
+    }
+
+    function initPaypalButtons() {
+      if (state.paypalButtonsRendered) return;
+      if (!$paypalButtonsContainer || !window.paypal?.Buttons) {
+        return;
+      }
+      const isDesktopCheckout = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+
+      const buildConfig = () => ({
+        style: { layout: "vertical", shape: "rect" },
+        createOrder(_data, actions) {
+          const value = Math.max(getCheckoutTotal(), 1).toFixed(2);
+          return actions.order.create({
+            purchase_units: [
+              {
+                amount: {
+                  currency_code: PAYPAL_CURRENCY,
+                  value
+                }
+              }
+            ]
+          });
+        },
+        onApprove(_data, actions) {
+          return actions.order.capture().then((details) => {
+            const nombre = details?.payer?.name?.given_name || authName(state.user);
+            alert(`Pago aprobado por ${nombre}. Gracias por tu compra.`);
+            const wasInstantCheckout = Boolean(state.instantCheckoutItem);
+            state.instantCheckoutItem = null;
+            if (!wasInstantCheckout) {
+              state.carrito = [];
+            }
+            if ($metodoPago) $metodoPago.value = "";
+            renderCarrito();
+          });
+        },
+        onError() {
+          alert("No se pudo completar el pago. Intenta nuevamente.");
+        }
+      });
+
+      const renderFundingButton = (fundingSource, container) => {
+        if (!fundingSource || !container) return false;
+        const btn = window.paypal.Buttons({
+          ...buildConfig(),
+          fundingSource
+        });
+        if (!btn || typeof btn.isEligible !== "function" || !btn.isEligible()) return false;
+        btn.render(`#${container.id}`);
+        return true;
+      };
+
+      const renderDefaultPaypalFallback = () => {
+        if (!$paypalButtonMain) return false;
+        const btn = window.paypal.Buttons({
+          ...buildConfig(),
+          style: { layout: "vertical", shape: "rect", label: "paypal" }
+        });
+        if (!btn || typeof btn.isEligible !== "function" || !btn.isEligible()) return false;
+        btn.render("#paypalButtonMain");
+        return true;
+      };
+
+      const renderedApple = isDesktopCheckout ? false : renderFundingButton(window.paypal.FUNDING?.APPLEPAY, $paypalButtonApplePay);
+      const renderedGoogle = isDesktopCheckout ? false : renderFundingButton(window.paypal.FUNDING?.GOOGLEPAY, $paypalButtonGooglePay);
+      let renderedPaypal = renderFundingButton(window.paypal.FUNDING?.PAYPAL, $paypalButtonMain);
+      if (!renderedPaypal) renderedPaypal = renderDefaultPaypalFallback();
+
+      if ($paypalCheckoutMsg) {
+        if (isDesktopCheckout) {
+          $paypalCheckoutMsg.textContent = "Pago por PC: usa el enlace directo de PayPal.";
+        } else {
+          $paypalCheckoutMsg.textContent = (renderedApple || renderedGoogle)
+            ? "Elige Apple Pay, Google Pay o PayPal."
+            : "Apple Pay y Google Pay no están disponibles aquí. Puedes pagar con PayPal.";
+        }
+      }
+
+      if (!renderedPaypal && !renderedApple && !renderedGoogle) return;
+      state.paypalButtonsRendered = true;
+    }
+
+    function togglePaypalCheckout() {
+      if (!$paypalCheckoutWrap) return;
+      $paypalCheckoutWrap.classList.add("hidden");
+    }
+
+    function initDetallePaypalButtons() {
+      if (state.detallePaypalButtonsRendered) return;
+      if (!$detallePaypalButtonsContainer || !window.paypal?.Buttons) {
+        return;
+      }
+      const isDesktopCheckout = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+
+      const buildConfig = () => ({
+        style: { layout: "vertical", shape: "rect" },
+        createOrder(_data, actions) {
+          const value = Math.max(getCheckoutTotal(), 1).toFixed(2);
+          return actions.order.create({
+            purchase_units: [
+              {
+                amount: {
+                  currency_code: PAYPAL_CURRENCY,
+                  value
+                }
+              }
+            ]
+          });
+        },
+        onApprove(_data, actions) {
+          return actions.order.capture().then((details) => {
+            const nombre = details?.payer?.name?.given_name || authName(state.user);
+            alert(`Pago aprobado por ${nombre}. Gracias por tu compra.`);
+            const wasInstantCheckout = Boolean(state.instantCheckoutItem);
+            state.instantCheckoutItem = null;
+            if (!wasInstantCheckout) {
+              state.carrito = [];
+            }
+            if ($metodoPago) $metodoPago.value = "";
+            $detallePaypalCheckoutWrap?.classList.add("hidden");
+            renderCarrito();
+          });
+        },
+        onError() {
+          alert("No se pudo completar el pago. Intenta nuevamente.");
+        }
+      });
+
+      const renderFundingButton = (fundingSource, container) => {
+        if (!fundingSource || !container) return false;
+        const btn = window.paypal.Buttons({
+          ...buildConfig(),
+          fundingSource
+        });
+        if (!btn || typeof btn.isEligible !== "function" || !btn.isEligible()) return false;
+        btn.render(`#${container.id}`);
+        return true;
+      };
+
+      const renderDefaultPaypalFallback = () => {
+        if (!$detallePaypalButtonMain) return false;
+        const btn = window.paypal.Buttons({
+          ...buildConfig(),
+          style: { layout: "vertical", shape: "rect", label: "paypal" }
+        });
+        if (!btn || typeof btn.isEligible !== "function" || !btn.isEligible()) return false;
+        btn.render("#detallePaypalButtonMain");
+        return true;
+      };
+
+      const renderedApple = isDesktopCheckout ? false : renderFundingButton(window.paypal.FUNDING?.APPLEPAY, $detallePaypalButtonApplePay);
+      const renderedGoogle = isDesktopCheckout ? false : renderFundingButton(window.paypal.FUNDING?.GOOGLEPAY, $detallePaypalButtonGooglePay);
+      let renderedPaypal = renderFundingButton(window.paypal.FUNDING?.PAYPAL, $detallePaypalButtonMain);
+      if (!renderedPaypal) renderedPaypal = renderDefaultPaypalFallback();
+
+      if ($detallePaypalCheckoutMsg) {
+        if (isDesktopCheckout) {
+          $detallePaypalCheckoutMsg.textContent = "Pago directo por PC con PayPal.";
+        } else {
+          $detallePaypalCheckoutMsg.textContent = (renderedApple || renderedGoogle)
+            ? "Paga este producto con Apple Pay, Google Pay o PayPal."
+            : "Apple Pay y Google Pay no están disponibles aquí. Puedes pagar con PayPal.";
+        }
+      }
+
+      if (!renderedPaypal && !renderedApple && !renderedGoogle) return;
+      state.detallePaypalButtonsRendered = true;
+    }
+
+    function toggleDetallePaypalCheckout() {
+      if (!$detallePaypalCheckoutWrap) return;
+      $detallePaypalCheckoutWrap.classList.add("hidden");
     }
 
     function productoById(id) {
@@ -530,6 +1047,7 @@
         const off = descuento(p);
         const card = document.createElement("article");
         card.className = "card rec-card";
+        card.dataset.id = String(p.id);
         card.innerHTML = `
           <div class="card-media">
             <img src="${p.imagenes[0]}" alt="${p.nombre}">
@@ -599,6 +1117,20 @@
       });
     }
 
+    function renderDetalleVideo(producto) {
+      const hasVideo = Boolean(producto.video);
+      $detalleVideoWrap.classList.toggle("hidden", !hasVideo);
+      if (!hasVideo) {
+        $detalleVideo.removeAttribute("src");
+        $detalleVideo.load();
+        return;
+      }
+      if ($detalleVideo.src !== producto.video) {
+        $detalleVideo.src = producto.video;
+        $detalleVideo.load();
+      }
+    }
+
     function applyZoomTransform() {
       $detalleImagenPrincipal.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.zoomScale})`;
       $detalleImagenWrap.style.cursor = state.zoomScale > 1 ? "grab" : "zoom-in";
@@ -648,12 +1180,13 @@
       state.selectedImage = 0;
 
       $detalleNombre.textContent = producto.nombre;
-      $detalleMeta.textContent = `${producto.categoria} | ${producto.rating.toFixed(1)} stars | ${producto.imagenes.length} imagen(es)`;
+      $detalleMeta.textContent = `${producto.categoria} | ${producto.rating.toFixed(1)}★ | Entrega estimada 24-72h`;
       $detallePrecio.textContent = money(producto.precio);
       $detallePrecioAnterior.textContent = money(producto.precioAnterior);
       $detalleDescripcion.textContent = producto.descripcion;
 
       renderDetalleImagenes(producto);
+      renderDetalleVideo(producto);
       renderRecomendaciones(producto);
       renderResenas(producto);
 
@@ -665,6 +1198,8 @@
       state.selectedId = null;
       resetZoom();
       closeLightbox();
+      $detalleVideo.pause();
+      $detallePaypalCheckoutWrap?.classList.add("hidden");
       $detalleProducto.classList.add("hidden");
     }
 
@@ -682,16 +1217,27 @@
     document.getElementById("btnBuscar").addEventListener("click", () => {
       state.q = $busqueda.value.trim();
       renderProductos();
+      scheduleGuardarEstadoCliente();
     });
 
     $busqueda.addEventListener("input", () => {
       state.q = $busqueda.value.trim();
       renderProductos();
+      scheduleGuardarEstadoCliente();
     });
 
     $orden.addEventListener("change", () => {
       state.orden = $orden.value;
       renderProductos();
+      scheduleGuardarEstadoCliente();
+    });
+
+    $metodoPago?.addEventListener("change", () => {
+      const isWhatsapp = ($metodoPago?.value || "") === "WhatsApp";
+      $whatsappPagoBtn?.classList.toggle("hidden", !isWhatsapp);
+      $paypalCheckoutWrap?.classList.add("hidden");
+      $detallePaypalCheckoutWrap?.classList.add("hidden");
+      scheduleGuardarEstadoCliente();
     });
 
     $categorias.addEventListener("click", (e) => {
@@ -699,26 +1245,38 @@
       if (!btn) return;
       state.categoria = btn.dataset.categoria;
       renderAll();
+      scheduleGuardarEstadoCliente();
     });
 
     $productos.addEventListener("click", (e) => {
+      const addBtn = e.target.closest(".btn-add");
+      if (addBtn) {
+        const producto = productoById(addBtn.dataset.id);
+        if (!producto) return;
+        addToCart(producto);
+        return;
+      }
+
       const openBtn = e.target.closest(".btn-open");
       if (openBtn) {
         openDetalle(openBtn.dataset.id);
         return;
       }
 
-      const addBtn = e.target.closest(".btn-add");
-      if (!addBtn) return;
-      const producto = productoById(addBtn.dataset.id);
-      if (!producto) return;
-      addToCart(producto);
+      const card = e.target.closest(".card");
+      if (!card?.dataset.id) return;
+      openDetalle(card.dataset.id);
     });
 
     $recomendaciones.addEventListener("click", (e) => {
       const openBtn = e.target.closest(".btn-open");
-      if (!openBtn) return;
-      openDetalle(openBtn.dataset.id);
+      if (openBtn) {
+        openDetalle(openBtn.dataset.id);
+        return;
+      }
+      const card = e.target.closest(".card");
+      if (!card?.dataset.id) return;
+      openDetalle(card.dataset.id);
     });
 
     $reviewForm.addEventListener("submit", async (e) => {
@@ -798,9 +1356,7 @@
     });
 
     $detalleImagenPrincipal.addEventListener("click", () => {
-      if (window.matchMedia("(max-width: 900px)").matches) {
-        openLightbox();
-      }
+      openLightbox();
     });
 
     $detalleImagenWrap.addEventListener("wheel", (e) => {
@@ -839,9 +1395,31 @@
     $lightboxClose.addEventListener("click", closeLightbox);
     $lightboxPrev.addEventListener("click", () => moveLightbox(-1));
     $lightboxNext.addEventListener("click", () => moveLightbox(1));
+    $lightboxImage.addEventListener("click", (e) => {
+      const rect = $lightboxImage.getBoundingClientRect();
+      const clickOnLeftSide = (e.clientX - rect.left) < (rect.width / 2);
+      moveLightbox(clickOnLeftSide ? -1 : 1);
+    });
     $imageLightbox.addEventListener("click", (e) => {
       if (e.target === $imageLightbox) closeLightbox();
     });
+    window.addEventListener("keydown", (e) => {
+      if ($imageLightbox.classList.contains("hidden")) return;
+      if (e.key === "ArrowLeft") moveLightbox(-1);
+      if (e.key === "ArrowRight") moveLightbox(1);
+      if (e.key === "Escape") closeLightbox();
+    });
+    $imageLightbox.addEventListener("touchstart", (e) => {
+      if (!e.touches || !e.touches.length) return;
+      state.lightboxTouchStartX = e.touches[0].clientX;
+    }, { passive: true });
+    $imageLightbox.addEventListener("touchend", (e) => {
+      if (!e.changedTouches || !e.changedTouches.length) return;
+      const endX = e.changedTouches[0].clientX;
+      const delta = endX - state.lightboxTouchStartX;
+      if (Math.abs(delta) < 35) return;
+      moveLightbox(delta < 0 ? 1 : -1);
+    }, { passive: true });
 
     $detalleAgregarCarrito.addEventListener("click", () => {
       if (!state.selectedId) return;
@@ -855,8 +1433,14 @@
       if (!state.selectedId) return;
       const producto = productoById(state.selectedId);
       if (!producto) return;
-      addToCart(producto);
-      alert(`Producto agregado y listo para compra: ${producto.nombre}`);
+      state.instantCheckoutItem = {
+        id: producto.id,
+        nombre: producto.nombre,
+        precio: producto.precio
+      };
+      if ($metodoPago) $metodoPago.value = "WhatsApp";
+      $whatsappPagoBtn?.classList.remove("hidden");
+      openWhatsAppPayment();
     });
 
     $cerrarDetalle.addEventListener("click", closeDetalle);
@@ -867,15 +1451,18 @@
       const idx = Number(btn.dataset.remove);
       state.carrito.splice(idx, 1);
       renderCarrito();
+      scheduleGuardarEstadoCliente();
     });
 
     $vaciarCarrito.addEventListener("click", () => {
       state.carrito = [];
       renderCarrito();
+      scheduleGuardarEstadoCliente();
     });
 
     $btnAuthLogout.addEventListener("click", async () => {
       if (!supabaseClient) return;
+      await guardarEstadoClienteSupabase();
       await supabaseClient.auth.signOut();
       state.carrito = [];
       renderCarrito();
@@ -884,13 +1471,55 @@
 
     $comprarTodo.addEventListener("click", () => {
       if (!requireAuth()) return;
+      state.instantCheckoutItem = null;
       if (!state.carrito.length) {
         alert("Agrega productos al carrito antes de comprar.");
         return;
       }
-      alert(`Compra realizada por ${$carritoTotal.textContent}`);
-      state.carrito = [];
-      renderCarrito();
+      const metodoPago = $metodoPago?.value || "";
+      if (!metodoPago) {
+        alert("Selecciona un método de pago. Por ahora solo WhatsApp está disponible.");
+        $metodoPago?.focus();
+        return;
+      }
+      if (metodoPago !== "WhatsApp") {
+        alert("Este método estará disponible próximamente. Usa WhatsApp para pagar por ahora.");
+        return;
+      }
+      openWhatsAppPayment();
+    });
+
+    $facturaCancelar?.addEventListener("click", () => {
+      closeInvoiceModal();
+    });
+
+    $facturaConfirmar?.addEventListener("click", () => {
+      confirmInvoicePurchase();
+    });
+
+    $facturaModal?.addEventListener("click", (e) => {
+      if (e.target === $facturaModal) closeInvoiceModal();
+    });
+
+    $trackingSearchBtn?.addEventListener("click", async () => {
+      if (!requireAuth()) return;
+      const code = ($trackingCodeInput?.value || "").trim().toUpperCase();
+      if (!code) {
+        if ($trackingResult) $trackingResult.textContent = "Ingresa un codigo de rastreo valido.";
+        return;
+      }
+      if ($trackingResult) $trackingResult.textContent = "Consultando rastreo...";
+      const pedido = await buscarRastreoSupabase(code);
+      if (!pedido) {
+        if ($trackingResult) $trackingResult.textContent = "No encontramos un pedido con ese codigo en tu cuenta.";
+        return;
+      }
+      const fecha = pedido.created_at ? new Date(pedido.created_at).toLocaleString("es-DO") : "Sin fecha";
+      const total = money(Number(pedido.total) || 0);
+      const estado = pedido.tracking_status || "pendiente";
+      if ($trackingResult) {
+        $trackingResult.textContent = `Codigo ${pedido.tracking_code} | Estado: ${estado} | Fecha: ${fecha} | Total: ${total}`;
+      }
     });
 
     window.addEventListener("storage", () => {

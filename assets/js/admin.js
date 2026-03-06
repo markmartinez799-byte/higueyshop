@@ -3,9 +3,14 @@
     const SUPABASE_KEY = "sb_publishable_1Dc2DB9h1p3bKm4yrm6SVA_qA693feK";
     const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_KEY);
     const PLACEHOLDER_IMG = "https://dummyimage.com/800x600/f0f0f0/777&text=Sin+imagen";
+    const MAX_IMAGES = 50;
+    const MAX_VIDEO_BYTES = 3 * 1024 * 1024;
     const ADMIN_EMAIL = "markmartinez799@gmail.com";
     const ADMIN_PASSWORD = "Marcos1807";
     const ADMIN_SESSION_KEY = "higüeyshop_admin_session_v1";
+    const urlParams = new URLSearchParams(window.location.search);
+    const requestedMode = urlParams.get("mode");
+    const defaultAccessMode = requestedMode === "admin" ? "admin" : "user";
 
     const defaults = [
       {
@@ -58,6 +63,7 @@
     const $precioAnterior = document.getElementById("precioAnterior");
     const $rating = document.getElementById("rating");
     const $imagenesArchivos = document.getElementById("imagenesArchivos");
+    const $videoArchivo = document.getElementById("videoArchivo");
     const $imagenesUrls = document.getElementById("imagenesUrls");
     const $descripcion = document.getElementById("descripcion");
     const $agregar = document.getElementById("agregar");
@@ -111,7 +117,7 @@
       const legacy = producto.imagen ? [producto.imagen] : [];
       const imagenes = (Array.isArray(producto.imagenes) ? producto.imagenes : legacy)
         .filter(Boolean)
-        .slice(0, 10);
+        .slice(0, MAX_IMAGES);
 
       if (!imagenes.length) imagenes.push(PLACEHOLDER_IMG);
 
@@ -121,6 +127,7 @@
         precio,
         precioAnterior,
         imagenes,
+        video: producto.video || "",
         categoria: producto.categoria || "General",
         descripcion: producto.descripcion || "Sin descripcion",
         rating: clampRating(producto.rating),
@@ -137,6 +144,7 @@
         precio: row.precio,
         precioAnterior: row.precio_anterior ?? row.precio,
         imagenes: (imgs.length ? imgs : fallback),
+        video: row.video || "",
         categoria: row.categoria || "General",
         descripcion: row.descripcion || "",
         rating: Number(row.rating) || 4.5,
@@ -151,6 +159,7 @@
         precio_anterior: producto.precioAnterior ?? producto.precio,
         imagen: (producto.imagenes && producto.imagenes[0]) || PLACEHOLDER_IMG,
         imagenes: (producto.imagenes && producto.imagenes.length ? producto.imagenes : [PLACEHOLDER_IMG]),
+        video: producto.video || "",
         categoria: producto.categoria || "General",
         descripcion: producto.descripcion || "",
         rating: Number(producto.rating) || 4.5,
@@ -226,7 +235,7 @@
     }
 
     function isAdminAuthenticated() {
-      return sessionStorage.getItem(ADMIN_SESSION_KEY) === "ok";
+      return localStorage.getItem(ADMIN_SESSION_KEY) === "ok";
     }
 
     function setAuthMessage(msg, isError = false) {
@@ -276,7 +285,7 @@
     }
 
     async function buildImagenes() {
-      const files = Array.from($imagenesArchivos.files || []).slice(0, 10);
+      const files = Array.from($imagenesArchivos.files || []).slice(0, MAX_IMAGES);
       const fileImgs = await Promise.all(files.map(fileToDataURL));
 
       const urlImgs = $imagenesUrls.value
@@ -284,8 +293,17 @@
         .map((v) => v.trim())
         .filter(Boolean);
 
-      const all = [...fileImgs, ...urlImgs].filter(Boolean).slice(0, 10);
+      const all = [...fileImgs, ...urlImgs].filter(Boolean).slice(0, MAX_IMAGES);
       return all;
+    }
+
+    async function buildVideo() {
+      const file = $videoArchivo.files?.[0];
+      if (!file) return "";
+      if (file.size > MAX_VIDEO_BYTES) {
+        throw new Error("El video supera 3 MB.");
+      }
+      return fileToDataURL(file);
     }
 
     function crearCard(producto) {
@@ -295,7 +313,7 @@
         <img src="${producto.imagenes[0]}" alt="${producto.nombre}">
         <div>
           <h3>${producto.nombre}</h3>
-          <p class="sub">${producto.categoria} | ${producto.rating.toFixed(1)} stars | ${producto.imagenes.length} imagen(es)</p>
+          <p class="sub">${producto.categoria} | ${producto.rating.toFixed(1)} stars | ${producto.imagenes.length} imagen(es)${producto.video ? " | video" : ""}</p>
           <p><strong>${money(producto.precio)}</strong> <span style="text-decoration:line-through;color:#888;">${money(producto.precioAnterior)}</span></p>
           <p class="sub">${producto.descripcion}</p>
         </div>
@@ -326,6 +344,7 @@
       $precioAnterior.value = "";
       $rating.value = "";
       $imagenesArchivos.value = "";
+      $videoArchivo.value = "";
       $imagenesUrls.value = "";
       $descripcion.value = "";
     }
@@ -346,6 +365,7 @@
       $precioAnterior.value = Number(producto.precioAnterior) || Number(producto.precio) || 0;
       $rating.value = Number(producto.rating) || 4.5;
       $imagenesArchivos.value = "";
+      $videoArchivo.value = "";
       $imagenesUrls.value = Array.isArray(producto.imagenes) ? producto.imagenes.join("\n") : "";
       $descripcion.value = producto.descripcion || "";
       $nombre.focus();
@@ -365,10 +385,12 @@
       }
 
       let imagenes = [];
+      let video = "";
       try {
         imagenes = await buildImagenes();
+        video = await buildVideo();
       } catch {
-        alert("No se pudo procesar una de las imagenes.");
+        alert("No se pudo procesar una imagen o el video (recuerda: video maximo 3 MB).");
         return;
       }
 
@@ -381,12 +403,14 @@
       const imagenesFinales = imagenes.length
         ? imagenes
         : (currentEditing?.imagenes && currentEditing.imagenes.length ? currentEditing.imagenes : []);
+      const videoFinal = video || currentEditing?.video || "";
 
       const nuevoProducto = normalize({
         id: currentEditing?.id || crypto.randomUUID(),
         nombre,
         categoria,
         imagenes: imagenesFinales,
+        video: videoFinal,
         precio,
         precioAnterior,
         rating,
@@ -464,7 +488,7 @@
         }
       }
 
-      sessionStorage.setItem(ADMIN_SESSION_KEY, "ok");
+      localStorage.setItem(ADMIN_SESSION_KEY, "ok");
       setAuthMessage("");
       $adminLoginForm.reset();
       setAdminAuthUI(true);
@@ -475,9 +499,9 @@
       if (supabaseClient) {
         await supabaseClient.auth.signOut();
       }
-      sessionStorage.removeItem(ADMIN_SESSION_KEY);
+      localStorage.removeItem(ADMIN_SESSION_KEY);
       setAdminAuthUI(false);
-      setAccessMode("user");
+      setAccessMode(defaultAccessMode);
     });
 
     $modoUserBtn.addEventListener("click", () => setAccessMode("user"));
@@ -540,14 +564,14 @@
         setAdminAuthUI(true);
         initData();
       } else {
-        sessionStorage.removeItem(ADMIN_SESSION_KEY);
+        localStorage.removeItem(ADMIN_SESSION_KEY);
         setAdminAuthUI(false);
-        setAccessMode("user");
+        setAccessMode(defaultAccessMode);
         setUserAuthMode("login");
       }
     };
 
     setAdminAuthUI(false);
-    setAccessMode("user");
+    setAccessMode(defaultAccessMode);
     setUserAuthMode("login");
     bootAdmin();
