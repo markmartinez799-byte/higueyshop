@@ -114,30 +114,32 @@
     }
 
     function mapSupabaseProducto(row) {
+      const imgs = Array.isArray(row.imagenes) ? row.imagenes : [];
+      const fallback = row.imagen ? [row.imagen] : [PLACEHOLDER_IMG];
       return {
         id: row.id,
         nombre: row.nombre,
         precio: row.precio,
-        precioAnterior: row.precio_anterior,
-        imagenes: row.imagenes,
-        categoria: row.categoria,
-        descripcion: row.descripcion,
-        rating: row.rating,
-        ventas: row.ventas
+        precioAnterior: row.precio_anterior ?? row.precio,
+        imagenes: (imgs.length ? imgs : fallback),
+        categoria: row.categoria || "General",
+        descripcion: row.descripcion || "",
+        rating: Number(row.rating) || 4.5,
+        ventas: Number(row.ventas) || 0
       };
     }
 
     function toSupabaseProducto(producto) {
       return {
-        id: producto.id,
         nombre: producto.nombre,
         precio: producto.precio,
-        precio_anterior: producto.precioAnterior,
-        imagenes: producto.imagenes,
-        categoria: producto.categoria,
-        descripcion: producto.descripcion,
-        rating: producto.rating,
-        ventas: producto.ventas
+        precio_anterior: producto.precioAnterior ?? producto.precio,
+        imagen: (producto.imagenes && producto.imagenes[0]) || PLACEHOLDER_IMG,
+        imagenes: (producto.imagenes && producto.imagenes.length ? producto.imagenes : [PLACEHOLDER_IMG]),
+        categoria: producto.categoria || "General",
+        descripcion: producto.descripcion || "",
+        rating: Number(producto.rating) || 4.5,
+        ventas: Number(producto.ventas) || 0
       };
     }
 
@@ -145,18 +147,20 @@
       if (!supabaseClient) return null;
       const { data, error } = await supabaseClient
         .from("productos")
-        .select("*")
-        .order("created_at", { ascending: false });
+        .select("*");
       if (error) return null;
       return Array.isArray(data) ? data.map(mapSupabaseProducto) : [];
     }
 
     async function guardarProductoSupabase(producto) {
       if (!supabaseClient) return false;
-      const { error } = await supabaseClient
+      const { data, error } = await supabaseClient
         .from("productos")
-        .upsert(toSupabaseProducto(producto));
-      return !error;
+        .insert(toSupabaseProducto(producto))
+        .select("*")
+        .single();
+      if (error) return false;
+      return mapSupabaseProducto(data);
     }
 
     async function eliminarProductoSupabase(productId) {
@@ -195,6 +199,13 @@
 
     function isAdminAuthenticated() {
       return sessionStorage.getItem(ADMIN_SESSION_KEY) === "ok";
+    }
+
+    async function adminHasSupabaseSession() {
+      if (!supabaseClient) return false;
+      const { data } = await supabaseClient.auth.getSession();
+      const email = data?.session?.user?.email?.toLowerCase();
+      return Boolean(data?.session && email === ADMIN_EMAIL);
     }
 
     async function initData() {
@@ -299,7 +310,11 @@
       catalogo.unshift(nuevoProducto);
 
       guardar();
-      await guardarProductoSupabase(nuevoProducto);
+      const remoteProducto = await guardarProductoSupabase(nuevoProducto);
+      if (remoteProducto && remoteProducto.id !== undefined && remoteProducto.id !== null) {
+        nuevoProducto.id = remoteProducto.id;
+        guardar();
+      }
       render();
 
       $nombre.value = "";
@@ -337,6 +352,19 @@
         $adminAuthMsg.style.color = "#c82f2f";
         return;
       }
+
+      if (supabaseClient) {
+        const { error } = await supabaseClient.auth.signInWithPassword({
+          email: ADMIN_EMAIL,
+          password: ADMIN_PASSWORD
+        });
+        if (error) {
+          $adminAuthMsg.textContent = `No se pudo autenticar en Supabase: ${error.message}`;
+          $adminAuthMsg.style.color = "#c82f2f";
+          return;
+        }
+      }
+
       sessionStorage.setItem(ADMIN_SESSION_KEY, "ok");
       $adminAuthMsg.textContent = "";
       $adminLoginForm.reset();
@@ -344,15 +372,25 @@
       await initData();
     });
 
-    $adminLogoutBtn.addEventListener("click", () => {
+    $adminLogoutBtn.addEventListener("click", async () => {
+      if (supabaseClient) {
+        await supabaseClient.auth.signOut();
+      }
       sessionStorage.removeItem(ADMIN_SESSION_KEY);
       setAdminAuthUI(false);
     });
 
-    if (isAdminAuthenticated()) {
-      setAdminAuthUI(true);
-      initData();
-    } else {
-      setAdminAuthUI(false);
-    }
-  </script>
+    const bootAdmin = async () => {
+      const uiAuth = isAdminAuthenticated();
+      const apiAuth = await adminHasSupabaseSession();
+      if (uiAuth && apiAuth) {
+        setAdminAuthUI(true);
+        initData();
+      } else {
+        sessionStorage.removeItem(ADMIN_SESSION_KEY);
+        setAdminAuthUI(false);
+      }
+    };
+
+    setAdminAuthUI(false);
+    bootAdmin();

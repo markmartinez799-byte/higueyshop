@@ -258,16 +258,18 @@
     }
 
     function mapSupabaseProducto(row) {
+      const imgs = Array.isArray(row.imagenes) ? row.imagenes : [];
+      const fallback = row.imagen ? [row.imagen] : [PLACEHOLDER_IMG];
       return {
         id: row.id,
         nombre: row.nombre,
         precio: row.precio,
-        precioAnterior: row.precio_anterior,
-        imagenes: row.imagenes,
-        categoria: row.categoria,
-        descripcion: row.descripcion,
-        rating: row.rating,
-        ventas: row.ventas
+        precioAnterior: row.precio_anterior ?? row.precio,
+        imagenes: (imgs.length ? imgs : fallback),
+        categoria: row.categoria || "General",
+        descripcion: row.descripcion || "",
+        rating: Number(row.rating) || 4.5,
+        ventas: Number(row.ventas) || 0
       };
     }
 
@@ -288,7 +290,7 @@
       const { data, error } = await supabaseClient
         .from("productos")
         .select("*")
-        .order("created_at", { ascending: false });
+        .order("id", { ascending: false });
       if (error) return null;
       return Array.isArray(data) ? data.map(mapSupabaseProducto) : [];
     }
@@ -870,4 +872,3 @@
 
     initAuth();
     initData();
-  </script>
