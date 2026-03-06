@@ -91,18 +91,6 @@
     const $authUserBadge = document.getElementById("authUserBadge");
     const $btnAuthOpen = document.getElementById("btnAuthOpen");
     const $btnAuthLogout = document.getElementById("btnAuthLogout");
-    const $authPanel = document.getElementById("authPanel");
-    const $btnAuthClose = document.getElementById("btnAuthClose");
-    const $registerForm = document.getElementById("registerForm");
-    const $registerNombre = document.getElementById("registerNombre");
-    const $registerEmail = document.getElementById("registerEmail");
-    const $registerPassword = document.getElementById("registerPassword");
-    const $loginForm = document.getElementById("loginForm");
-    const $loginEmail = document.getElementById("loginEmail");
-    const $loginPassword = document.getElementById("loginPassword");
-    const $authMsg = document.getElementById("authMsg");
-    const $goToLogin = document.getElementById("goToLogin");
-    const $goToRegister = document.getElementById("goToRegister");
 
     const $detalleProducto = document.getElementById("detalleProducto");
     const $cerrarDetalle = document.getElementById("cerrarDetalle");
@@ -133,8 +121,7 @@
       carrito: [],
       selectedId: null,
       selectedImage: 0,
-      user: null,
-      authMode: "login"
+      user: null
     };
 
     function parsePrecio(value) {
@@ -192,11 +179,6 @@
       return metaName || user.email || "Cliente";
     }
 
-    function setAuthMessage(msg, isError = false) {
-      $authMsg.textContent = msg || "";
-      $authMsg.style.color = isError ? "#c82f2f" : "";
-    }
-
     function renderAuthUI() {
       const logged = Boolean(state.user);
       $authUserBadge.textContent = logged ? authName(state.user) : "Invitado";
@@ -207,29 +189,11 @@
       }
     }
 
-    function openAuthPanel() {
-      setAuthMode("login");
-      $authPanel.classList.remove("hidden");
-      setAuthMessage("");
-    }
-
-    function closeAuthPanel() {
-      $authPanel.classList.add("hidden");
-      setAuthMessage("");
-    }
-
     function requireAuth() {
       if (state.user) return true;
-      openAuthPanel();
       alert("Debes iniciar sesión como cliente para continuar.");
+      window.location.href = "user.html";
       return false;
-    }
-
-    function setAuthMode(mode) {
-      state.authMode = mode === "register" ? "register" : "login";
-      $loginForm.classList.toggle("hidden", state.authMode !== "login");
-      $registerForm.classList.toggle("hidden", state.authMode !== "register");
-      setAuthMessage("");
     }
 
     function normalize(producto) {
@@ -384,7 +348,6 @@
 
     async function initAuth() {
       if (!supabaseClient) {
-        setAuthMessage("Supabase Auth no está disponible.", true);
         return;
       }
       const { data } = await supabaseClient.auth.getSession();
@@ -799,58 +762,12 @@
       renderCarrito();
     });
 
-    $btnAuthOpen.addEventListener("click", openAuthPanel);
-    $btnAuthClose.addEventListener("click", closeAuthPanel);
-    $goToRegister.addEventListener("click", () => setAuthMode("register"));
-    $goToLogin.addEventListener("click", () => setAuthMode("login"));
-
-    $registerForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      if (!supabaseClient) {
-        setAuthMessage("No hay conexión de autenticación.", true);
-        return;
-      }
-      const nombre = $registerNombre.value.trim();
-      const email = $registerEmail.value.trim().toLowerCase();
-      const password = $registerPassword.value;
-      const { error } = await supabaseClient.auth.signUp({
-        email,
-        password,
-        options: { data: { nombre } }
-      });
-      if (error) {
-        setAuthMessage(error.message, true);
-        return;
-      }
-      setAuthMode("login");
-      setAuthMessage("Cuenta creada. Ahora inicia sesión.");
-      $registerForm.reset();
-    });
-
-    $loginForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      if (!supabaseClient) {
-        setAuthMessage("No hay conexión de autenticación.", true);
-        return;
-      }
-      const email = $loginEmail.value.trim().toLowerCase();
-      const password = $loginPassword.value;
-      const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
-      if (error) {
-        setAuthMessage(error.message, true);
-        return;
-      }
-      setAuthMessage("Sesión iniciada.");
-      $loginForm.reset();
-      closeAuthPanel();
-    });
-
     $btnAuthLogout.addEventListener("click", async () => {
       if (!supabaseClient) return;
       await supabaseClient.auth.signOut();
       state.carrito = [];
       renderCarrito();
-      setAuthMessage("Sesión cerrada.");
+      renderAuthUI();
     });
 
     $comprarTodo.addEventListener("click", () => {

@@ -19,38 +19,13 @@
       </div>
       <div class="actions-inline">
         <span id="authUserBadge" class="auth-badge">Invitado</span>
-        <button id="btnAuthOpen" class="btn secondary" type="button">Entrar / Crear cuenta</button>
+        <a id="btnAuthOpen" class="btn secondary" href="user.html">Pagina user</a>
         <button id="btnAuthLogout" class="btn secondary hidden" type="button">Salir</button>
       </div>
     </div>
   </header>
 
   <main class="container">
-    <section id="authPanel" class="panel auth-panel hidden">
-      <div class="auth-head">
-        <h3>Cuenta de cliente</h3>
-        <button id="btnAuthClose" class="btn secondary" type="button">Cerrar</button>
-      </div>
-      <div class="auth-grid">
-        <form id="registerForm" class="auth-form hidden">
-          <strong>Crear cuenta</strong>
-          <input id="registerNombre" type="text" placeholder="Nombre" required>
-          <input id="registerEmail" type="email" placeholder="Correo" required>
-          <input id="registerPassword" type="password" placeholder="Contraseña (min 6)" minlength="6" required>
-          <button class="btn" type="submit">Registrarme</button>
-          <p class="sub">¿Ya tienes usuario? <button id="goToLogin" class="link-btn" type="button">Iniciar sesión</button></p>
-        </form>
-        <form id="loginForm" class="auth-form">
-          <strong>Iniciar sesión</strong>
-          <input id="loginEmail" type="email" placeholder="Correo" required>
-          <input id="loginPassword" type="password" placeholder="Contraseña" required>
-          <button class="btn" type="submit">Entrar</button>
-          <p class="sub">¿No tienes cuenta? <button id="goToRegister" class="link-btn" type="button">Crear cuenta</button></p>
-        </form>
-      </div>
-      <p id="authMsg" class="sub"></p>
-    </section>
-
     <section class="hero">
       <article class="hero-card">
         <h1>Ofertas de hoy en higueyshop</h1>

@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>higueyshop | Acceso Usuario</title>
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body class="cliente">
+  <header class="market-header">
+    <div class="topbar">
+      <div class="brand">
+        <span class="brand-badge">HS</span>
+        <span class="brand-name">higueyshop user</span>
+      </div>
+      <div class="actions-inline">
+        <a class="btn secondary" href="index.html">Volver a tienda</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="panel auth-panel">
+      <div class="auth-head">
+        <h3>Acceso de usuario</h3>
+      </div>
+      <div class="auth-grid">
+        <form id="registerForm" class="auth-form hidden">
+          <strong>Crear cuenta</strong>
+          <input id="registerNombre" type="text" placeholder="Nombre" required>
+          <input id="registerEmail" type="email" placeholder="Correo" required>
+          <input id="registerPassword" type="password" placeholder="Contraseña (min 6)" minlength="6" required>
+          <button class="btn" type="submit">Registrarme</button>
+          <p class="sub">¿Ya tienes usuario? <button id="goToLogin" class="link-btn" type="button">Iniciar sesión</button></p>
+        </form>
+
+        <form id="loginForm" class="auth-form">
+          <strong>Iniciar sesión</strong>
+          <input id="loginEmail" type="email" placeholder="Correo" required>
+          <input id="loginPassword" type="password" placeholder="Contraseña" required>
+          <button class="btn" type="submit">Entrar</button>
+          <p class="sub">¿No tienes cuenta? <button id="goToRegister" class="link-btn" type="button">Crear cuenta</button></p>
+        </form>
+      </div>
+      <p id="authMsg" class="sub"></p>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+  <script src="assets/js/user.js" defer></script>
+</body>
+</html>
