@@ -1,0 +1,44 @@
+{
+  "project": "higueyshop",
+  "version": "1.0.0",
+  "products": [
+    {
+      "nombre": "Smartwatch X10",
+      "precio": 2450,
+      "precioAnterior": 3100,
+      "categoria": "Electronica",
+      "rating": 4.8,
+      "ventas": 380,
+      "imagenes": [
+        "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1508685096489-7aacd43bd3b1?auto=format&fit=crop&w=900&q=80"
+      ],
+      "descripcion": "Pantalla tactil, monitoreo de salud y bateria de 5 dias."
+    },
+    {
+      "nombre": "Auriculares Pro Bass",
+      "precio": 1850,
+      "precioAnterior": 2400,
+      "categoria": "Electronica",
+      "rating": 4.6,
+      "ventas": 890,
+      "imagenes": [
+        "https://images.unsplash.com/photo-1546435770-a3e426bf472b?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1545127398-14699f92334b?auto=format&fit=crop&w=900&q=80"
+      ],
+      "descripcion": "Sonido envolvente y estuche de carga compacto."
+    },
+    {
+      "nombre": "Mochila Travel Max",
+      "precio": 1300,
+      "precioAnterior": 1690,
+      "categoria": "Moda",
+      "rating": 4.5,
+      "ventas": 560,
+      "imagenes": [
+        "https://images.unsplash.com/photo-1581605405669-fcdf81165afa?auto=format&fit=crop&w=900&q=80"
+      ],
+      "descripcion": "Impermeable y con espacio para laptop de 15 pulgadas."
+    }
+  ]
+}
