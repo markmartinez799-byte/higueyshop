@@ -94,8 +94,10 @@
 
     const $detalleProducto = document.getElementById("detalleProducto");
     const $cerrarDetalle = document.getElementById("cerrarDetalle");
+    const $detalleImagenWrap = document.getElementById("detalleImagenWrap");
     const $detalleImagenPrincipal = document.getElementById("detalleImagenPrincipal");
     const $detalleGaleria = document.getElementById("detalleGaleria");
+    const $zoomBtn = document.getElementById("zoomBtn");
     const $detalleNombre = document.getElementById("detalleNombre");
     const $detalleMeta = document.getElementById("detalleMeta");
     const $detallePrecio = document.getElementById("detallePrecio");
@@ -113,6 +115,11 @@
     const $reviewTexto = document.getElementById("reviewTexto");
     const $reviewFoto = document.getElementById("reviewFoto");
     const $reviewList = document.getElementById("reviewList");
+    const $imageLightbox = document.getElementById("imageLightbox");
+    const $lightboxImage = document.getElementById("lightboxImage");
+    const $lightboxClose = document.getElementById("lightboxClose");
+    const $lightboxPrev = document.getElementById("lightboxPrev");
+    const $lightboxNext = document.getElementById("lightboxNext");
 
     const state = {
       q: "",
@@ -121,7 +128,13 @@
       carrito: [],
       selectedId: null,
       selectedImage: 0,
-      user: null
+      user: null,
+      zoomScale: 1,
+      panX: 0,
+      panY: 0,
+      isDraggingZoom: false,
+      dragStartX: 0,
+      dragStartY: 0
     };
 
     function parsePrecio(value) {
@@ -573,6 +586,7 @@
       const index = Math.max(0, Math.min(state.selectedImage, producto.imagenes.length - 1));
       state.selectedImage = index;
       $detalleImagenPrincipal.src = producto.imagenes[index];
+      resetZoom();
       $detalleGaleria.innerHTML = "";
 
       producto.imagenes.forEach((src, i) => {
@@ -583,6 +597,48 @@
         btn.innerHTML = `<img src="${src}" alt="Miniatura ${i + 1}">`;
         $detalleGaleria.appendChild(btn);
       });
+    }
+
+    function applyZoomTransform() {
+      $detalleImagenPrincipal.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.zoomScale})`;
+      $detalleImagenWrap.style.cursor = state.zoomScale > 1 ? "grab" : "zoom-in";
+    }
+
+    function resetZoom() {
+      state.zoomScale = 1;
+      state.panX = 0;
+      state.panY = 0;
+      applyZoomTransform();
+    }
+
+    function toggleZoom() {
+      if (state.zoomScale > 1) {
+        resetZoom();
+      } else {
+        state.zoomScale = 2;
+        applyZoomTransform();
+      }
+    }
+
+    function openLightbox() {
+      if (!state.selectedId) return;
+      const producto = productoById(state.selectedId);
+      if (!producto) return;
+      $lightboxImage.src = producto.imagenes[state.selectedImage] || producto.imagenes[0];
+      $imageLightbox.classList.remove("hidden");
+    }
+
+    function closeLightbox() {
+      $imageLightbox.classList.add("hidden");
+    }
+
+    function moveLightbox(step) {
+      if (!state.selectedId) return;
+      const producto = productoById(state.selectedId);
+      if (!producto || !producto.imagenes.length) return;
+      state.selectedImage = (state.selectedImage + step + producto.imagenes.length) % producto.imagenes.length;
+      renderDetalleImagenes(producto);
+      $lightboxImage.src = producto.imagenes[state.selectedImage];
     }
 
     function openDetalle(id) {
@@ -607,6 +663,8 @@
 
     function closeDetalle() {
       state.selectedId = null;
+      resetZoom();
+      closeLightbox();
       $detalleProducto.classList.add("hidden");
     }
 
@@ -729,6 +787,60 @@
       if (!producto) return;
       state.selectedImage = Number(btn.dataset.index || 0);
       renderDetalleImagenes(producto);
+    });
+
+    $zoomBtn.addEventListener("click", () => {
+      if (window.matchMedia("(max-width: 900px)").matches) {
+        openLightbox();
+        return;
+      }
+      toggleZoom();
+    });
+
+    $detalleImagenPrincipal.addEventListener("click", () => {
+      if (window.matchMedia("(max-width: 900px)").matches) {
+        openLightbox();
+      }
+    });
+
+    $detalleImagenWrap.addEventListener("wheel", (e) => {
+      if (window.matchMedia("(max-width: 900px)").matches) return;
+      e.preventDefault();
+      const step = e.deltaY < 0 ? 0.2 : -0.2;
+      state.zoomScale = Math.max(1, Math.min(4, state.zoomScale + step));
+      if (state.zoomScale === 1) {
+        state.panX = 0;
+        state.panY = 0;
+      }
+      applyZoomTransform();
+    }, { passive: false });
+
+    $detalleImagenWrap.addEventListener("mousedown", (e) => {
+      if (state.zoomScale <= 1) return;
+      state.isDraggingZoom = true;
+      state.dragStartX = e.clientX - state.panX;
+      state.dragStartY = e.clientY - state.panY;
+      $detalleImagenWrap.style.cursor = "grabbing";
+    });
+
+    window.addEventListener("mousemove", (e) => {
+      if (!state.isDraggingZoom) return;
+      state.panX = e.clientX - state.dragStartX;
+      state.panY = e.clientY - state.dragStartY;
+      applyZoomTransform();
+    });
+
+    window.addEventListener("mouseup", () => {
+      if (!state.isDraggingZoom) return;
+      state.isDraggingZoom = false;
+      applyZoomTransform();
+    });
+
+    $lightboxClose.addEventListener("click", closeLightbox);
+    $lightboxPrev.addEventListener("click", () => moveLightbox(-1));
+    $lightboxNext.addEventListener("click", () => moveLightbox(1));
+    $imageLightbox.addEventListener("click", (e) => {
+      if (e.target === $imageLightbox) closeLightbox();
     });
 
     $detalleAgregarCarrito.addEventListener("click", () => {

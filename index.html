@@ -81,7 +81,10 @@
 
       <div class="detail-grid">
         <div>
-          <img id="detalleImagenPrincipal" class="detail-main-image" alt="Imagen del producto">
+          <div id="detalleImagenWrap" class="detail-image-wrap">
+            <img id="detalleImagenPrincipal" class="detail-main-image" alt="Imagen del producto">
+            <button id="zoomBtn" class="zoom-btn" type="button" title="Zoom">🔍</button>
+          </div>
           <div id="detalleGaleria" class="detail-thumbs"></div>
         </div>
 
@@ -129,6 +132,13 @@
         <section id="reviewList" class="review-list"></section>
       </div>
     </section>
+
+    <div id="imageLightbox" class="lightbox hidden">
+      <button id="lightboxClose" class="lightbox-close" type="button">✕</button>
+      <button id="lightboxPrev" class="lightbox-nav prev" type="button">‹</button>
+      <img id="lightboxImage" class="lightbox-image" alt="Vista completa">
+      <button id="lightboxNext" class="lightbox-nav next" type="button">›</button>
+    </div>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
