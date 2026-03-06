@@ -205,7 +205,7 @@
     function requireAuth() {
       if (state.user) return true;
       alert("Debes iniciar sesión como cliente para continuar.");
-      window.location.href = "user.html";
+      window.location.href = "admin.html";
       return false;
     }
 

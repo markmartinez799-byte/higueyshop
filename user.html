@@ -3,50 +3,19 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>higueyshop | Acceso Usuario</title>
+  <title>higueyshop | Redireccionando</title>
   <link rel="stylesheet" href="assets/css/styles.css">
+  <meta http-equiv="refresh" content="0; url=admin.html">
 </head>
 <body class="cliente">
-  <header class="market-header">
-    <div class="topbar">
-      <div class="brand">
-        <img class="brand-logo" src="assets/img/logo-higueyshop.png" alt="Logo Higuey Shop">
-        <span class="brand-name">higueyshop user</span>
-      </div>
-      <div class="actions-inline">
-        <a class="btn secondary" href="index.html">Volver a tienda</a>
-      </div>
-    </div>
-  </header>
-
   <main class="container">
     <section class="panel auth-panel">
-      <div class="auth-head">
-        <h3>Acceso de usuario</h3>
+      <h3>Acceso unificado</h3>
+      <p class="sub">Esta pagina ahora esta integrada en <strong>admin.html</strong>.</p>
+      <div class="actions-inline" style="margin-top:10px;">
+        <a class="btn" href="admin.html">Ir ahora</a>
       </div>
-      <div class="auth-grid">
-        <form id="registerForm" class="auth-form hidden">
-          <strong>Crear cuenta</strong>
-          <input id="registerNombre" type="text" placeholder="Nombre" required>
-          <input id="registerEmail" type="email" placeholder="Correo" required>
-          <input id="registerPassword" type="password" placeholder="Contraseña (min 6)" minlength="6" required>
-          <button class="btn" type="submit">Registrarme</button>
-          <p class="sub">¿Ya tienes usuario? <button id="goToLogin" class="link-btn" type="button">Iniciar sesión</button></p>
-        </form>
-
-        <form id="loginForm" class="auth-form">
-          <strong>Iniciar sesión</strong>
-          <input id="loginEmail" type="email" placeholder="Correo" required>
-          <input id="loginPassword" type="password" placeholder="Contraseña" required>
-          <button class="btn" type="submit">Entrar</button>
-          <p class="sub">¿No tienes cuenta? <button id="goToRegister" class="link-btn" type="button">Crear cuenta</button></p>
-        </form>
-      </div>
-      <p id="authMsg" class="sub"></p>
     </section>
   </main>
-
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
-  <script src="assets/js/user.js" defer></script>
 </body>
 </html>

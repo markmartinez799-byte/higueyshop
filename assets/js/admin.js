@@ -61,6 +61,8 @@
     const $imagenesUrls = document.getElementById("imagenesUrls");
     const $descripcion = document.getElementById("descripcion");
     const $agregar = document.getElementById("agregar");
+    const $cancelarEdicion = document.getElementById("cancelarEdicion");
+    const $formTitulo = document.getElementById("formTitulo");
     const $productos = document.getElementById("productos");
     const $conteo = document.getElementById("conteo");
     const $adminApp = document.getElementById("adminApp");
@@ -70,6 +72,19 @@
     const $adminPassword = document.getElementById("adminPassword");
     const $adminAuthMsg = document.getElementById("adminAuthMsg");
     const $adminLogoutBtn = document.getElementById("adminLogoutBtn");
+    const $modoUserBtn = document.getElementById("modoUserBtn");
+    const $modoAdminBtn = document.getElementById("modoAdminBtn");
+    const $userAccessBox = document.getElementById("userAccessBox");
+    const $adminAccessBox = document.getElementById("adminAccessBox");
+    const $userRegisterForm = document.getElementById("userRegisterForm");
+    const $userRegisterNombre = document.getElementById("userRegisterNombre");
+    const $userRegisterEmail = document.getElementById("userRegisterEmail");
+    const $userRegisterPassword = document.getElementById("userRegisterPassword");
+    const $userLoginForm = document.getElementById("userLoginForm");
+    const $userLoginEmail = document.getElementById("userLoginEmail");
+    const $userLoginPassword = document.getElementById("userLoginPassword");
+    const $userGoToLogin = document.getElementById("userGoToLogin");
+    const $userGoToRegister = document.getElementById("userGoToRegister");
 
     function parsePrecio(value) {
       if (typeof value === "number") return value;
@@ -163,6 +178,18 @@
       return mapSupabaseProducto(data);
     }
 
+    async function actualizarProductoSupabase(producto) {
+      if (!supabaseClient) return false;
+      const { data, error } = await supabaseClient
+        .from("productos")
+        .update(toSupabaseProducto(producto))
+        .eq("id", producto.id)
+        .select("*")
+        .single();
+      if (error) return false;
+      return mapSupabaseProducto(data);
+    }
+
     async function eliminarProductoSupabase(productId) {
       if (!supabaseClient) return false;
       const { error } = await supabaseClient
@@ -185,6 +212,7 @@
     }
 
     let catalogo = cargar();
+    let editingProductId = null;
 
     function guardar() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(catalogo));
@@ -199,6 +227,27 @@
 
     function isAdminAuthenticated() {
       return sessionStorage.getItem(ADMIN_SESSION_KEY) === "ok";
+    }
+
+    function setAuthMessage(msg, isError = false) {
+      $adminAuthMsg.textContent = msg || "";
+      $adminAuthMsg.style.color = isError ? "#c82f2f" : "";
+    }
+
+    function setAccessMode(mode) {
+      const isAdminMode = mode === "admin";
+      $adminAccessBox.classList.toggle("hidden", !isAdminMode);
+      $userAccessBox.classList.toggle("hidden", isAdminMode);
+      $modoAdminBtn.classList.toggle("active-mode", isAdminMode);
+      $modoUserBtn.classList.toggle("active-mode", !isAdminMode);
+      setAuthMessage("");
+    }
+
+    function setUserAuthMode(mode) {
+      const toRegister = mode === "register";
+      $userLoginForm.classList.toggle("hidden", toRegister);
+      $userRegisterForm.classList.toggle("hidden", !toRegister);
+      setAuthMessage("");
     }
 
     async function adminHasSupabaseSession() {
@@ -251,6 +300,7 @@
           <p class="sub">${producto.descripcion}</p>
         </div>
         <div class="actions-inline" style="justify-content:flex-end;align-items:start;">
+          <button class="btn secondary" data-edit-id="${producto.id}">Editar</button>
           <button class="btn danger" data-id="${producto.id}">Quitar</button>
         </div>
       `;
@@ -267,6 +317,38 @@
       }
 
       catalogo.forEach((producto) => $productos.appendChild(crearCard(producto)));
+    }
+
+    function limpiarFormulario() {
+      $nombre.value = "";
+      $categoria.value = "";
+      $precio.value = "";
+      $precioAnterior.value = "";
+      $rating.value = "";
+      $imagenesArchivos.value = "";
+      $imagenesUrls.value = "";
+      $descripcion.value = "";
+    }
+
+    function setEditMode(producto = null) {
+      editingProductId = producto ? producto.id : null;
+      const isEditing = Boolean(producto);
+      $formTitulo.textContent = isEditing ? "Editar producto" : "Agregar producto";
+      $agregar.textContent = isEditing ? "Guardar cambios del articulo" : "Agregar articulos de venta";
+      $cancelarEdicion.classList.toggle("hidden", !isEditing);
+      if (!isEditing) {
+        limpiarFormulario();
+        return;
+      }
+      $nombre.value = producto.nombre || "";
+      $categoria.value = producto.categoria || "";
+      $precio.value = Number(producto.precio) || 0;
+      $precioAnterior.value = Number(producto.precioAnterior) || Number(producto.precio) || 0;
+      $rating.value = Number(producto.rating) || 4.5;
+      $imagenesArchivos.value = "";
+      $imagenesUrls.value = Array.isArray(producto.imagenes) ? producto.imagenes.join("\n") : "";
+      $descripcion.value = producto.descripcion || "";
+      $nombre.focus();
     }
 
     $agregar.addEventListener("click", async () => {
@@ -290,52 +372,71 @@
         return;
       }
 
-      if (!imagenes.length) {
+      if (!imagenes.length && !editingProductId) {
         alert("Agrega al menos una imagen (archivo o URL).");
         return;
       }
 
+      const currentEditing = editingProductId ? catalogo.find((p) => String(p.id) === String(editingProductId)) : null;
+      const imagenesFinales = imagenes.length
+        ? imagenes
+        : (currentEditing?.imagenes && currentEditing.imagenes.length ? currentEditing.imagenes : []);
+
       const nuevoProducto = normalize({
-        id: crypto.randomUUID(),
+        id: currentEditing?.id || crypto.randomUUID(),
         nombre,
         categoria,
-        imagenes,
+        imagenes: imagenesFinales,
         precio,
         precioAnterior,
         rating,
         descripcion,
-        ventas: 0
+        ventas: currentEditing?.ventas || 0
       });
 
-      catalogo.unshift(nuevoProducto);
-
-      guardar();
-      const remoteProducto = await guardarProductoSupabase(nuevoProducto);
-      if (remoteProducto && remoteProducto.id !== undefined && remoteProducto.id !== null) {
-        nuevoProducto.id = remoteProducto.id;
+      if (editingProductId) {
+        catalogo = catalogo.map((p) => (String(p.id) === String(editingProductId) ? nuevoProducto : p));
         guardar();
+        const remoteUpdated = await actualizarProductoSupabase(nuevoProducto);
+        if (remoteUpdated) {
+          catalogo = catalogo.map((p) => (String(p.id) === String(editingProductId) ? remoteUpdated : p));
+          guardar();
+        }
+      } else {
+        catalogo.unshift(nuevoProducto);
+        guardar();
+        const remoteProducto = await guardarProductoSupabase(nuevoProducto);
+        if (remoteProducto && remoteProducto.id !== undefined && remoteProducto.id !== null) {
+          nuevoProducto.id = remoteProducto.id;
+          guardar();
+        }
       }
-      render();
 
-      $nombre.value = "";
-      $categoria.value = "";
-      $precio.value = "";
-      $precioAnterior.value = "";
-      $rating.value = "";
-      $imagenesArchivos.value = "";
-      $imagenesUrls.value = "";
-      $descripcion.value = "";
-      $nombre.focus();
+      setEditMode(null);
+      render();
     });
 
     $productos.addEventListener("click", async (e) => {
-      const btn = e.target.closest("button[data-id]");
-      if (!btn) return;
-      const productId = btn.dataset.id;
-      catalogo = catalogo.filter((p) => p.id !== productId);
+      const editBtn = e.target.closest("button[data-edit-id]");
+      if (editBtn) {
+        const productId = editBtn.dataset.editId;
+        const producto = catalogo.find((p) => String(p.id) === String(productId));
+        if (producto) setEditMode(producto);
+        return;
+      }
+
+      const deleteBtn = e.target.closest("button[data-id]");
+      if (!deleteBtn) return;
+      const productId = deleteBtn.dataset.id;
+      catalogo = catalogo.filter((p) => String(p.id) !== String(productId));
       guardar();
       await eliminarProductoSupabase(productId);
+      if (String(editingProductId) === String(productId)) setEditMode(null);
       render();
+    });
+
+    $cancelarEdicion.addEventListener("click", () => {
+      setEditMode(null);
     });
 
     window.addEventListener("storage", () => {
@@ -348,8 +449,7 @@
       const email = $adminEmail.value.trim().toLowerCase();
       const password = $adminPassword.value;
       if (email !== ADMIN_EMAIL || password !== ADMIN_PASSWORD) {
-        $adminAuthMsg.textContent = "Credenciales admin incorrectas.";
-        $adminAuthMsg.style.color = "#c82f2f";
+        setAuthMessage("Credenciales admin incorrectas.", true);
         return;
       }
 
@@ -359,14 +459,13 @@
           password: ADMIN_PASSWORD
         });
         if (error) {
-          $adminAuthMsg.textContent = `No se pudo autenticar en Supabase: ${error.message}`;
-          $adminAuthMsg.style.color = "#c82f2f";
+          setAuthMessage(`No se pudo autenticar en Supabase: ${error.message}`, true);
           return;
         }
       }
 
       sessionStorage.setItem(ADMIN_SESSION_KEY, "ok");
-      $adminAuthMsg.textContent = "";
+      setAuthMessage("");
       $adminLoginForm.reset();
       setAdminAuthUI(true);
       await initData();
@@ -378,6 +477,60 @@
       }
       sessionStorage.removeItem(ADMIN_SESSION_KEY);
       setAdminAuthUI(false);
+      setAccessMode("user");
+    });
+
+    $modoUserBtn.addEventListener("click", () => setAccessMode("user"));
+    $modoAdminBtn.addEventListener("click", () => setAccessMode("admin"));
+    $userGoToRegister.addEventListener("click", () => setUserAuthMode("register"));
+    $userGoToLogin.addEventListener("click", () => setUserAuthMode("login"));
+
+    $userRegisterForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (!supabaseClient) {
+        setAuthMessage("Supabase Auth no esta disponible.", true);
+        return;
+      }
+
+      const nombre = $userRegisterNombre.value.trim();
+      const email = $userRegisterEmail.value.trim().toLowerCase();
+      const password = $userRegisterPassword.value;
+
+      const { error } = await supabaseClient.auth.signUp({
+        email,
+        password,
+        options: { data: { nombre } }
+      });
+
+      if (error) {
+        setAuthMessage(error.message, true);
+        return;
+      }
+
+      $userRegisterForm.reset();
+      setUserAuthMode("login");
+      setAuthMessage("Cuenta creada. Inicia sesion para entrar a la tienda.");
+    });
+
+    $userLoginForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (!supabaseClient) {
+        setAuthMessage("Supabase Auth no esta disponible.", true);
+        return;
+      }
+
+      const email = $userLoginEmail.value.trim().toLowerCase();
+      const password = $userLoginPassword.value;
+      const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+      if (error) {
+        setAuthMessage(error.message, true);
+        return;
+      }
+
+      setAuthMessage("Sesion iniciada. Redirigiendo...");
+      setTimeout(() => {
+        window.location.href = "index.html";
+      }, 350);
     });
 
     const bootAdmin = async () => {
@@ -389,8 +542,12 @@
       } else {
         sessionStorage.removeItem(ADMIN_SESSION_KEY);
         setAdminAuthUI(false);
+        setAccessMode("user");
+        setUserAuthMode("login");
       }
     };
 
     setAdminAuthUI(false);
+    setAccessMode("user");
+    setUserAuthMode("login");
     bootAdmin();

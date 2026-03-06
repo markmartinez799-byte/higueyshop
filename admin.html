@@ -11,7 +11,6 @@
     <div class="topbar">
       <div class="brand">
         <img class="brand-logo" src="assets/img/logo-higueyshop.png" alt="Logo Higuey Shop">
-        <span class="brand-name">higueyshop admin</span>
       </div>
       <div class="actions-inline">
         <button id="adminLogoutBtn" class="btn secondary hidden" type="button">Cerrar sesión admin</button>
@@ -23,19 +22,45 @@
   <main class="container">
     <section id="adminLoginPanel" class="panel auth-panel">
       <div class="auth-head">
-        <h2>Acceso admin</h2>
+        <h2>Acceso rápido</h2>
       </div>
-      <form id="adminLoginForm" class="auth-form" style="max-width:460px;">
-        <input id="adminEmail" type="email" placeholder="Correo admin" required>
-        <input id="adminPassword" type="password" placeholder="Contraseña admin" required>
-        <button class="btn" type="submit">Entrar al panel</button>
-      </form>
+      <div class="actions-inline" style="margin:10px 0;">
+        <button id="modoUserBtn" class="btn secondary" type="button">Usuario</button>
+        <button id="modoAdminBtn" class="btn secondary" type="button">Admin</button>
+      </div>
+
+      <div id="userAccessBox" class="auth-grid">
+        <form id="userRegisterForm" class="auth-form hidden">
+          <strong>Crear cuenta usuario</strong>
+          <input id="userRegisterNombre" type="text" placeholder="Nombre" required>
+          <input id="userRegisterEmail" type="email" placeholder="Correo" required>
+          <input id="userRegisterPassword" type="password" placeholder="Contraseña (min 6)" minlength="6" required>
+          <button class="btn" type="submit">Registrarme</button>
+          <p class="sub">¿Ya tienes usuario? <button id="userGoToLogin" class="link-btn" type="button">Iniciar sesión</button></p>
+        </form>
+
+        <form id="userLoginForm" class="auth-form">
+          <strong>Iniciar sesión usuario</strong>
+          <input id="userLoginEmail" type="email" placeholder="Correo" required>
+          <input id="userLoginPassword" type="password" placeholder="Contraseña" required>
+          <button class="btn" type="submit">Entrar a la tienda</button>
+          <p class="sub">¿No tienes cuenta? <button id="userGoToRegister" class="link-btn" type="button">Crear cuenta</button></p>
+        </form>
+      </div>
+
+      <div id="adminAccessBox" class="hidden">
+        <form id="adminLoginForm" class="auth-form" style="max-width:460px;">
+          <input id="adminEmail" type="email" placeholder="Correo admin" required>
+          <input id="adminPassword" type="password" placeholder="Contraseña admin" required>
+          <button class="btn" type="submit">Entrar al panel</button>
+        </form>
+      </div>
       <p id="adminAuthMsg" class="sub"></p>
     </section>
 
     <section id="adminApp" class="admin-shell hidden">
       <section class="panel">
-        <h2>Agregar producto</h2>
+        <h2 id="formTitulo">Agregar producto</h2>
         <p class="sub">Puedes subir imagenes desde tu carpeta y/o pegar URLs. Maximo 10 imagenes por articulo.</p>
         <div class="form-grid">
           <input id="nombre" type="text" placeholder="Nombre del articulo">
@@ -46,7 +71,8 @@
           <input id="imagenesArchivos" type="file" accept="image/*" multiple>
           <textarea id="imagenesUrls" class="full" placeholder="URLs de imagen (una por linea)"></textarea>
           <textarea id="descripcion" class="full" placeholder="Descripcion corta del producto"></textarea>
-          <button id="agregar" class="full">Publicar producto</button>
+          <button id="agregar" class="full">Agregar articulos de venta</button>
+          <button id="cancelarEdicion" class="full btn secondary hidden" type="button">Cancelar edición</button>
         </div>
       </section>
 

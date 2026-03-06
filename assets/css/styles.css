@@ -48,7 +48,7 @@ a {
 .brand {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0;
 }
 
 .brand-badge {
@@ -60,13 +60,12 @@ a {
 }
 
 .brand-logo {
-  width: 52px;
-  height: 52px;
+  width: 96px;
+  height: 96px;
   object-fit: contain;
-  border-radius: 10px;
-  background: #fff;
-  border: 1px solid var(--line);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  background: transparent;
+  border: none;
+  box-shadow: none;
 }
 
 .brand-name {
@@ -148,6 +147,12 @@ button:active,
   background: #fff;
   color: var(--text);
   border: 1px solid var(--line);
+}
+
+.btn.secondary.active-mode {
+  background: var(--text);
+  color: #fff;
+  border-color: var(--text);
 }
 
 .btn.danger {
@@ -535,7 +540,6 @@ button:active,
 
 .lightbox-nav.prev { left: 12px; }
 .lightbox-nav.next { right: 12px; }
-}
 
 .detail-thumbs {
   margin-top: 10px;
