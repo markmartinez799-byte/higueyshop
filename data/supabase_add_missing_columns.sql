@@ -1,4 +1,4 @@
--- higueyshop: agregar columnas faltantes a tabla existente productos
+-- higüeyshop: agregar columnas faltantes a tabla existente productos
 -- Ejecutar en Supabase SQL Editor.
 -- No borra datos actuales.
 

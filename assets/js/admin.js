@@ -5,7 +5,7 @@
     const PLACEHOLDER_IMG = "https://dummyimage.com/800x600/f0f0f0/777&text=Sin+imagen";
     const ADMIN_EMAIL = "markmartinez799@gmail.com";
     const ADMIN_PASSWORD = "Marcos1807";
-    const ADMIN_SESSION_KEY = "higueyshop_admin_session_v1";
+    const ADMIN_SESSION_KEY = "higüeyshop_admin_session_v1";
 
     const defaults = [
       {

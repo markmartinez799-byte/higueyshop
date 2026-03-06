@@ -1,4 +1,4 @@
--- higueyshop: setup de tablas + RLS + seed inicial
+-- higüeyshop: setup de tablas + RLS + seed inicial
 -- Ejecuta este archivo en Supabase SQL Editor.
 
 create extension if not exists pgcrypto;
