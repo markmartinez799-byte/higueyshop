@@ -59,6 +59,16 @@ a {
   border-radius: 10px;
 }
 
+.brand-logo {
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+  border-radius: 10px;
+  background: #fff;
+  border: 1px solid var(--line);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
 .brand-name {
   font-weight: 800;
   font-size: 1.15rem;
