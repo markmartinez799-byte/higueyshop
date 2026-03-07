@@ -1,7 +1,7 @@
     const STORAGE_KEY = "catalogo_articulos_v1";
     const REVIEW_STORAGE_KEY = "catalogo_resenas_v1";
-    const SUPABASE_URL = "https://khnfwiumfxpqzmwoyhbx.supabase.co";
-    const SUPABASE_KEY = "sb_publishable_1Dc2DB9h1p3bKm4yrm6SVA_qA693feK";
+    const SUPABASE_URL = "https://pmnxjnnhfvtexbcayzkj.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_REEMPLAZAR_POR_ANON_KEY";
     const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_KEY);
     const PLACEHOLDER_IMG = "https://dummyimage.com/800x600/f0f0f0/777&text=Sin+imagen";
     const MAX_IMAGES = 50;

@@ -1,5 +1,5 @@
-const SUPABASE_URL = "https://khnfwiumfxpqzmwoyhbx.supabase.co";
-const SUPABASE_KEY = "sb_publishable_1Dc2DB9h1p3bKm4yrm6SVA_qA693feK";
+const SUPABASE_URL = "https://pmnxjnnhfvtexbcayzkj.supabase.co";
+const SUPABASE_KEY = "sb_publishable_REEMPLAZAR_POR_ANON_KEY";
 const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const $registerForm = document.getElementById("registerForm");
